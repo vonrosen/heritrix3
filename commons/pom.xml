@@ -119,12 +119,6 @@
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>net.java.dev.jets3t</groupId>
-			<artifactId>jets3t</artifactId>
-			<version>0.5.0</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
 			<groupId>it.unimi.dsi</groupId>
 			<artifactId>mg4j</artifactId>
 			<version>1.0.1</version>
@@ -218,16 +212,6 @@
 					<encoding>UTF-8</encoding>
 				</configuration>
 				<version>2.5</version>
-			</plugin>
-
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<source>1.6</source>
-					<target>1.6</target>
-				</configuration>
-				<version>2.3.2</version>
 			</plugin>
 
 			<plugin>
