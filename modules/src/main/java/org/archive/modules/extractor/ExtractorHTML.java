@@ -931,6 +931,7 @@ public class ExtractorHTML extends ContentExtractor implements InitializingBean 
         String name = null;
         String httpEquiv = null;
         String content = null;
+        String property = null;
         while (attr.find()) {
             int valueGroup =
                 (attr.start(14) > -1) ? 14 : (attr.start(15) > -1) ? 15 : 16;
@@ -943,7 +944,7 @@ public class ExtractorHTML extends ContentExtractor implements InitializingBean 
                 httpEquiv = value.toString();
             } else if (attr.group(1).equalsIgnoreCase("content")) {
                 content = value.toString();
-            }
+            }            
             // TODO: handle other stuff
         }
         TextUtils.recycleMatcher(attr);
@@ -975,6 +976,18 @@ public class ExtractorHTML extends ContentExtractor implements InitializingBean 
                 }
             }
         }
+        else if (content != null) {
+            //look for likely urls in 'content' attribute
+            try {
+                if (UriUtils.isVeryLikelyUri(content)) {
+                    int max = getExtractorParameters().getMaxOutlinks();
+                    addRelativeToBase(curi, max, content, 
+                            HTMLLinkContext.META, Hop.SPECULATIVE);                    
+                }
+            } catch (URIException e) {
+                logUriError(e, curi.getUURI(), content);
+            }
+        }        
         return false;
     }
 
