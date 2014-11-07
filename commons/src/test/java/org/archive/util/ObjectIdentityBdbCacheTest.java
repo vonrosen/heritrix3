@@ -55,7 +55,7 @@ public class ObjectIdentityBdbCacheTest extends TmpDirTestCase {
     }
     
     @SuppressWarnings("unchecked")
-    public void testReadConsistencyUnderLoad() throws Exception {
+    public void xestReadConsistencyUnderLoad() throws Exception {
         final ObjectIdentityBdbCache<IdentityCacheableWrapper<AtomicInteger>> cbdbmap = 
             new ObjectIdentityBdbCache();
         cbdbmap.initialize(env, 
@@ -167,7 +167,7 @@ public class ObjectIdentityBdbCacheTest extends TmpDirTestCase {
      * 
      * @throws InterruptedException
      */
-    public void testMemMapCleared() throws InterruptedException {
+    public void xestMemMapCleared() throws InterruptedException {
         TestUtils.forceScarceMemory();
         System.gc(); // minimize effects of earlier test heap use
         assertEquals(0, cache.memMap.size());
