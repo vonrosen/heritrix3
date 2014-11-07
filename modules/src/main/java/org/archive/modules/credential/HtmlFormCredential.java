@@ -55,7 +55,7 @@ public class HtmlFormCredential extends Credential {
     /**
      * Form items.
      */
-    protected Map<String,String> formItems = new HashMap<String,String>();
+    transient protected Map<String,String> formItems = new HashMap<String,String>();
     public Map<String,String> getFormItems() {
         return this.formItems;
     }
