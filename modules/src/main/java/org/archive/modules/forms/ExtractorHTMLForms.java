@@ -154,6 +154,25 @@ public class ExtractorHTMLForms extends Extractor {
                 String value = findAttributeValueGroup("(?i)^[^>]*\\svalue\\s*=\\s*([^>\\s]+)[^>]*>",1,input);
                 form.addField(type,name,value);
             }
+            for(CharSequence input : findGroups("(?i)(?s)(<select\\s.+?</select>)|(</?form>)",1,relevantSequence)) {
+                String name = findAttributeValueGroup("(?i)^[^>]*\\sname\\s*=\\s*([^>\\s]+)[^>]*>",1,input); 
+                
+                boolean noneSelected = true;
+                
+                //try to get 'selected' value first
+                for(CharSequence value : findGroups("(?i)<option\\s+selected\\s+value\\s*=\\s*[\"'](.+?)[\"']>",1,input)) {                    
+                    form.addField("select",name,value.toString());
+                    noneSelected = false;
+                    break;
+                }
+                
+                if (noneSelected) {
+                    for(CharSequence value : findGroups("(?i)<option\\s+.*value\\s*=\\s*[\"'](.+?)[\"']>",1,input)) {                    
+                        form.addField("select",name,value.toString());
+                        break;
+                    }
+                }
+            }
             if (form.seemsLoginForm() || getExtractAllForms()) {
                 curi.getDataList(A_HTML_FORM_OBJECTS).add(form);
                 curi.getAnnotations().add(form.asAnnotation());
