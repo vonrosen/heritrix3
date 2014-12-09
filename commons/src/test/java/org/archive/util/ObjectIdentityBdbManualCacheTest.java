@@ -55,7 +55,7 @@ public class ObjectIdentityBdbManualCacheTest extends TmpDirTestCase {
     }
     
     @SuppressWarnings("unchecked")
-    public void testReadConsistencyUnderLoad() throws Exception {
+    public void xestReadConsistencyUnderLoad() throws Exception {
         final ObjectIdentityBdbManualCache<IdentityCacheableWrapper<AtomicInteger>> cbdbmap = 
             new ObjectIdentityBdbManualCache();
         cbdbmap.initialize(env, 
