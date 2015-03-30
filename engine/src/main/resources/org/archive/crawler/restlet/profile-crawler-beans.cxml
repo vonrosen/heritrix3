@@ -330,7 +330,7 @@ http://example.example/example
     <ref bean="extractorJs"/>
     <!-- ...extract outlinks from Flash content... -->
     <ref bean="extractorSwf"/>
-    <!-- ...extract outlinks from video manifest contents... ->
+    <!-- ...extract outlinks from video manifest contents... -->
     <ref bean="extractorStreamingVideoManifest"/>
    </list>
   </property>
