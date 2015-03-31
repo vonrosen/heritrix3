@@ -305,6 +305,8 @@ http://example.example/example
  </bean>
  <bean id="extractorSwf" class="org.archive.modules.extractor.ExtractorSWF">
  </bean>    
+ <bean id="extractorText" class="org.archive.modules.extractor.ExtractorText">
+ </bean>
  <!-- now, processors are assembled into ordered FetchChain bean -->
  <bean id="fetchProcessors" class="org.archive.modules.FetchChain">
   <property name="processors">
@@ -328,6 +330,8 @@ http://example.example/example
     <ref bean="extractorJs"/>
     <!-- ...extract outlinks from Flash content... -->
     <ref bean="extractorSwf"/>
+    <!-- ...extract outlinks from text content... -->
+    <ref bean="extractorText"/>    
    </list>
   </property>
  </bean>
