@@ -405,10 +405,16 @@ public class ExtractorUniversal extends ContentExtractor {
 
                         // And add the URL to speculative embeds.
                         numberOfLinksExtracted.incrementAndGet();
-                        UURI dest = UURIFactory.getInstance(newURL);
-                        LinkContext lc = LinkContext.SPECULATIVE_MISC;
-                        Hop hop = Hop.SPECULATIVE;
-                        addOutlink(curi,  dest, lc, hop);
+                        UURI dest;
+                        try {
+                            dest = UURIFactory.getInstance(newURL);
+                            LinkContext lc = LinkContext.SPECULATIVE_MISC;
+                            Hop hop = Hop.SPECULATIVE;
+                            addOutlink(curi,  dest, lc, hop);
+                        }
+                        catch (IOException ioe) {
+                            curi.getNonFatalFailures().add(ioe);
+                        }
                     }
                     // Reset lookat for next string.
                     lookat = new StringBuffer();
@@ -418,9 +424,10 @@ public class ExtractorUniversal extends ContentExtractor {
                     lookat = new StringBuffer();
                     foundDot = false;
                 }
+                
                 ch = instream.read();
             }
-        } catch(IOException e){
+        } catch(Exception e){
             curi.getNonFatalFailures().add(e);
         } finally {
             IOUtils.closeQuietly(instream);
