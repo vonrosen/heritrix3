@@ -1,3 +1,21 @@
+/*
+ *  This file is part of the Heritrix web crawler (crawler.archive.org).
+ *
+ *  Licensed to the Internet Archive (IA) by one or more individual 
+ *  contributors. 
+ *
+ *  The IA licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 package org.archive.modules.extractor;
 
 import java.util.Collection;
@@ -24,8 +42,9 @@ public class KnowledgableExtractorJS extends ExtractorJS {
             Logger.getLogger(KnowledgableExtractorJS.class.getName());
 
     /**
-     * XXX explain
-     * Only wraps the methods we need to work, or it would be very long.
+     * Wraps a {@link CrawlURI}, allowing baseURI to be overridden, without
+     * changing the underlying CrawlURI. The only methods implemented are the
+     * ones necessary for {@link ExtractorJS} to work properly.
      */
     protected static class CustomizedCrawlURIFacade extends CrawlURI {
         private static final long serialVersionUID = 1l;
