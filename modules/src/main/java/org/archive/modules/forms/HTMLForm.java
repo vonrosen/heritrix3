@@ -33,6 +33,10 @@ import org.archive.util.TextUtils;
  * @contributor gojomo
  */
 public class HTMLForm {
+    
+    private static final String [] MOST_LIKELY_INPUT_NAMES_FOR_USERNAME = { "username", "login", "email"  };
+    private static final String [] MOST_LIKELY_INPUT_NAMES_FOR_PASSWORD = { "password", "passwd" };
+    
     public class FormInput {
         public String type;
         public String name;
@@ -95,8 +99,8 @@ public class HTMLForm {
      */
     public boolean seemsLoginForm() {
         return "post".equalsIgnoreCase(method) 
-                && candidateUsernameInputs.size() == 1
-                && candidatePasswordInputs.size() == 1;
+                && candidateUsernameInputs.size() > 0
+                && candidatePasswordInputs.size() > 0;
     }
 
     /**
@@ -112,9 +116,9 @@ public class HTMLForm {
         ArrayList<NameValuePair> data = new ArrayList<NameValuePair>(allInputs.size());
        
         for (FormInput input : allInputs) {
-            if(input == candidateUsernameInputs.get(0)) {
+            if(input == getUserNameFromCandidates()) {
                 data.add(new NameValuePair(input.name,username));
-            } else if(input == candidatePasswordInputs.get(0)) {
+            } else if(input == getPasswordFromCandidates()) {
                 data.add(new NameValuePair(input.name,password));
             } else if (StringUtils.isNotEmpty(input.name) && StringUtils.isNotEmpty(input.value)) {
                 data.add(new NameValuePair(input.name,input.value));
@@ -127,9 +131,9 @@ public class HTMLForm {
         List<String> nameVals = new LinkedList<String>();
 
         for (FormInput input : allInputs) {
-            if(input == candidateUsernameInputs.get(0)) {
+            if(input == getUserNameFromCandidates()) {
                 nameVals.add(TextUtils.urlEscape(input.name) + "=" + TextUtils.urlEscape(username));
-            } else if(input == candidatePasswordInputs.get(0)) {
+            } else if(input == getPasswordFromCandidates()) {
                 nameVals.add(TextUtils.urlEscape(input.name) + "=" + TextUtils.urlEscape(password));
             } else if (StringUtils.isNotEmpty(input.name) && StringUtils.isNotEmpty(input.value)) {
                 nameVals.add(TextUtils.urlEscape(input.name) + "=" + TextUtils.urlEscape(input.value));
@@ -138,6 +142,32 @@ public class HTMLForm {
 
         return StringUtils.join(nameVals, '&');
     }
+    
+    protected FormInput getUserNameFromCandidates() {
+        
+        for (int i = 0; i < MOST_LIKELY_INPUT_NAMES_FOR_USERNAME.length; ++i) {
+            for (FormInput input : allInputs) {
+                if (MOST_LIKELY_INPUT_NAMES_FOR_USERNAME[i].equals(input.name)) {
+                    return input;
+                }
+            }
+        }
+        
+        return candidateUsernameInputs.size() > 0 ? candidateUsernameInputs.get(0) : null;
+    }
+    
+    protected FormInput getPasswordFromCandidates() {
+        
+        for (int i = 0; i < MOST_LIKELY_INPUT_NAMES_FOR_PASSWORD.length; ++i) {
+            for (FormInput input : allInputs) {
+                if (MOST_LIKELY_INPUT_NAMES_FOR_PASSWORD[i].equals(input.name)) {
+                    return input;
+                }
+            }
+        }
+        
+        return candidatePasswordInputs.size() > 0 ? candidatePasswordInputs.get(0) : null;
+    }    
 
     public String toString() {
         StringBuilder sb = new StringBuilder(); 
