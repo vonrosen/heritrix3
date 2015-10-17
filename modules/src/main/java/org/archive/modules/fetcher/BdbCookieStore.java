@@ -136,30 +136,28 @@ public class BdbCookieStore extends AbstractCookieStore implements
     }
 
     public void addCookie(Cookie cookie) {
-        synchronized (cookies) {
-            if (isCookieCountMaxedForDomain(cookie.getDomain())) {
-                logger.log(
-                        Level.FINEST,
-                        "Maximum number of cookies reached for domain "
-                                + cookie.getDomain()
-                                + ". Will not add new cookie "
-                                + cookie.getName() + " with value "
-                                + cookie.getValue());
-                return;
-            }
+        
+        if (isCookieCountMaxedForDomain(cookie.getDomain())) {
+            logger.log(
+                    Level.FINEST,
+                    "Maximum number of cookies reached for domain "
+                            + cookie.getDomain() + ". Will not add new cookie "
+                            + cookie.getName() + " with value "
+                            + cookie.getValue());
+            return;
+        }
+        
+        byte[] key;
+        try {
+            key = sortableKey(cookie).getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e); // impossible
+        }
 
-            byte[] key;
-            try {
-                key = sortableKey(cookie).getBytes("UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e); // impossible
-            }
-
-            if (!cookie.isExpired(new Date())) {
-                cookies.put(key, cookie);
-            } else {
-                cookies.remove(key);
-            }
+        if (!cookie.isExpired(new Date())) {
+            cookies.put(key, cookie);
+        } else {
+            cookies.remove(key);
         }
     }
     
