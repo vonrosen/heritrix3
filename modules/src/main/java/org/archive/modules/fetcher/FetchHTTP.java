@@ -45,6 +45,8 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 
 import org.apache.commons.httpclient.URIException;
+import org.apache.commons.httpclient.auth.BasicScheme;
+import org.apache.commons.httpclient.auth.DigestScheme;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
@@ -64,6 +66,8 @@ import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.auth.BasicSchemeFactory;
 import org.apache.http.impl.auth.DigestSchemeFactory;
+import org.apache.http.impl.auth.NTLMScheme;
+import org.apache.http.impl.auth.NTLMSchemeFactory;
 import org.apache.http.impl.client.ProxyAuthenticationStrategy;
 import org.apache.http.impl.client.TargetAuthenticationStrategy;
 import org.apache.http.message.BasicHeader;
@@ -76,6 +80,7 @@ import org.archive.modules.Processor;
 import org.archive.modules.credential.Credential;
 import org.archive.modules.credential.CredentialStore;
 import org.archive.modules.credential.HttpAuthenticationCredential;
+import org.archive.modules.credential.NtlmAuthenticationCredential;
 import org.archive.modules.deciderules.AcceptDecideRule;
 import org.archive.modules.deciderules.DecideResult;
 import org.archive.modules.deciderules.DecideRule;
@@ -102,6 +107,7 @@ public class FetchHTTP extends Processor implements Lifecycle {
         RegistryBuilder<AuthSchemeProvider> b = RegistryBuilder.<AuthSchemeProvider>create();
         b.register(AuthSchemes.BASIC, new BasicSchemeFactory());
         b.register(AuthSchemes.DIGEST, new DigestSchemeFactory());
+        b.register(AuthSchemes.NTLM, new NTLMSchemeFactory());
         AUTH_SCHEME_REGISTRY = b.build();
     }
 
@@ -771,36 +777,68 @@ public class FetchHTTP extends Processor implements Lifecycle {
         }
     }
 
-    /**
-     * Server is looking for basic/digest auth credentials (RFC2617). If we have
-     * any, put them into the CrawlURI and have it come around again.
-     * Presence of the credential serves as flag to frontier to requeue
-     * promptly. If we already tried this domain and still got a 401, then our
-     * credentials are bad. Remove them and let this curi die.
-     * @param httpClient 
-     * @param response 401 http response 
-     * @param curi
-     *            CrawlURI that got a 401.
-     */
-    protected void handle401(HttpResponse response, final CrawlURI curi) {
-        Map<String, String> challenges = extractChallenges(response, curi,
-                TargetAuthenticationStrategy.INSTANCE);
-        AuthScheme authscheme = chooseAuthScheme(challenges,
-                HttpHeaders.WWW_AUTHENTICATE);
+    protected void doNtlmAuth(AuthScheme authScheme, Map<String, String> challenges, final CrawlURI curi) {
 
-        // remember WWW-Authenticate headers for later use 
-        curi.setHttpAuthChallenges(challenges);
+        // Look to see if this curi had ntlm avatars loaded. If so, are
+        // any of them for this realm? If so, then the credential failed
+        // if we got a 401 and it should be let die a natural 401 death.
+        // Credentials for ntlm will always be of type HttpAuthenticationCredential in spring
+        // config because user may have no way of knowing the credential type except that login and
+        // password are required.
+        Set<Credential> ntlmCredentials = getCredentials(curi,
+                NtlmAuthenticationCredential.class);
 
-        if (authscheme == null) {
-            return;
+        NtlmAuthenticationCredential extant = NtlmAuthenticationCredential.getByDomain(ntlmCredentials, "", curi);
+        
+        if (extant != null) {
+            // Then, already tried this credential. Remove ANY ntlm
+            // credential since presence of a ntlm credential serves
+            // as flag to frontier to requeue this curi and let the curi
+            // die a natural death.
+            extant.detachAll(curi);
+            logger.warning("Auth failed (401) though supplied domain " + extant.getDomain()
+                    + " to " + curi.toString());
+        } else {
+            // Look see if we have a credential that corresponds to this
+            // domain in credential store. Filter by type and credential
+            // domain. If not, let this curi die. Else, add it to the
+            // curi and let it come around again. Add in the AuthScheme
+            // we got too. Its needed when we go to run the Auth on
+            // second time around.
+            String serverKey = getServerKey(curi);
+            CrawlServer server = serverCache.getServerFor(serverKey);
+            Set<Credential> storeRfc2617Credentials = getCredentialStore().subset(curi,
+                    HttpAuthenticationCredential.class, server.getName());
+            if (storeRfc2617Credentials == null
+                    || storeRfc2617Credentials.size() <= 0) {
+                logger.fine("No rfc2617 credentials for " + curi);
+            } else {
+                HttpAuthenticationCredential found = HttpAuthenticationCredential.getByRealm(
+                        storeRfc2617Credentials, server.getName(), curi);                
+                if (found == null) {
+                    logger.fine("No ntlm credentials for domain " + server.getName()
+                            + " in " + curi);
+                } else {
+                    NtlmAuthenticationCredential.convertRfc2617ToNtlmCredential((HttpAuthenticationCredential)found).attach(curi);
+                    logger.fine("Found credential for scheme " + authScheme.getSchemeName()
+                            + " domain " + server.getName() + " in store for "
+                            + curi.toString());
+                }
+            }
         }
-        String realm = authscheme.getRealm();
+        
+        
+    }
+    
+    protected void doRfc2617Auth(AuthScheme authScheme, Map<String, String> challenges, final CrawlURI curi) {
+        String realm = authScheme.getRealm();
 
         // Look to see if this curi had rfc2617 avatars loaded. If so, are
         // any of them for this realm? If so, then the credential failed
         // if we got a 401 and it should be let die a natural 401 death.
         Set<Credential> curiRfc2617Credentials = getCredentials(curi,
                 HttpAuthenticationCredential.class);
+        
         HttpAuthenticationCredential extant = HttpAuthenticationCredential.getByRealm(
                 curiRfc2617Credentials, realm, curi);
         if (extant != null) {
@@ -833,11 +871,43 @@ public class FetchHTTP extends Processor implements Lifecycle {
                             + " in " + curi);
                 } else {
                     found.attach(curi);
-                    logger.fine("Found credential for scheme " + authscheme
+                    logger.fine("Found credential for scheme " + authScheme.getSchemeName()
                             + " realm " + realm + " in store for "
                             + curi.toString());
                 }
             }
+        }
+    }
+    
+    /**
+     * Server is looking for basic/digest/ntml auth credentials (RFC2617). If we have
+     * any, put them into the CrawlURI and have it come around again.
+     * Presence of the credential serves as flag to frontier to requeue
+     * promptly. If we already tried this domain and still got a 401, then our
+     * credentials are bad. Remove them and let this curi die.
+     * @param httpClient 
+     * @param response 401 http response 
+     * @param curi
+     *            CrawlURI that got a 401.
+     */
+    protected void handle401(HttpResponse response, final CrawlURI curi) {
+        Map<String, String> challenges = extractChallenges(response, curi,
+                TargetAuthenticationStrategy.INSTANCE);
+        AuthScheme authscheme = chooseAuthScheme(challenges,
+                HttpHeaders.WWW_AUTHENTICATE);
+
+        // remember WWW-Authenticate headers for later use 
+        curi.setHttpAuthChallenges(challenges);
+
+        if (authscheme == null) {
+            return;
+        }
+        
+        if (authscheme instanceof BasicScheme || authscheme instanceof DigestScheme) {
+            doRfc2617Auth(authscheme, challenges, curi);
+        }
+        else if (authscheme instanceof NTLMScheme) {
+            doNtlmAuth(authscheme, challenges, curi);
         }
     }
 
@@ -878,10 +948,11 @@ public class FetchHTTP extends Processor implements Lifecycle {
     
     protected AuthScheme chooseAuthScheme(Map<String, String> challenges, String challengeHeaderKey) {
         HashSet<String> authSchemesLeftToTry = new HashSet<String>(challenges.keySet());
-        for (String authSchemeName: new String[]{"digest","basic"}) {
+        for (String authSchemeName: new String[]{"digest","basic", "ntlm"}) {
             if (authSchemesLeftToTry.remove(authSchemeName)) {
-                AuthScheme authScheme = AUTH_SCHEME_REGISTRY.lookup(authSchemeName).create(null);;
-                BasicHeader challenge = new BasicHeader(challengeHeaderKey, challenges.get(authSchemeName));
+                
+                AuthScheme authScheme = AUTH_SCHEME_REGISTRY.lookup(authSchemeName).create(null);
+                BasicHeader challenge = new BasicHeader(HttpHeaders.WWW_AUTHENTICATE, challenges.get(authScheme.getSchemeName()));
 
                 try {
                     authScheme.processChallenge(challenge);
@@ -889,17 +960,13 @@ public class FetchHTTP extends Processor implements Lifecycle {
                     logger.fine(e.getMessage() + " " + challenge);
                     continue;
                 }
-                if (authScheme.isConnectionBased()) {
-                    logger.fine("Connection based " + authScheme);
-                    continue;
-                }
-
-                if (authScheme.getRealm() == null
-                        || authScheme.getRealm().length() <= 0) {
+                
+                if (!"ntlm".equals(authSchemeName) && (authScheme.getRealm() == null
+                        || authScheme.getRealm().length() <= 0)) {
                     logger.fine("Empty realm " + authScheme);
                     continue;
                 }
-
+                
                 return authScheme;
             }
         }

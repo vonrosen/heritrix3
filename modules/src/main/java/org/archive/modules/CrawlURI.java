@@ -84,6 +84,7 @@ import org.apache.commons.lang.StringUtils;
 import org.archive.bdb.AutoKryo;
 import org.archive.modules.credential.Credential;
 import org.archive.modules.credential.HttpAuthenticationCredential;
+import org.archive.modules.credential.NtlmAuthenticationCredential;
 import org.archive.modules.extractor.HTMLLinkContext;
 import org.archive.modules.extractor.Hop;
 import org.archive.modules.extractor.LinkContext;
@@ -945,7 +946,7 @@ implements Reporter, Serializable, OverlayContext, Comparable<CrawlURI> {
     public boolean isSuccess() {
         boolean result = false;
         int statusCode = this.fetchStatus;
-        if (statusCode == 401 && hasRfc2617Credential()) {
+        if (statusCode == 401 && (hasRfc2617Credential() || hasNtlmCredential())) {
             result = false;
         } else {
             result = (statusCode > 0);
@@ -969,6 +970,21 @@ implements Reporter, Serializable, OverlayContext, Comparable<CrawlURI> {
         if (credentials != null && credentials.size() > 0) {
             for (Credential credential : credentials) {
                 if(credential instanceof HttpAuthenticationCredential) {
+                    return true; 
+                }
+            }
+        }
+        return false; 
+    }
+    
+    /**
+     * @return True if we have an ntlm payload.
+     */
+    public boolean hasNtlmCredential() {
+        Set<Credential> credentials = getCredentials();
+        if (credentials != null && credentials.size() > 0) {
+            for (Credential credential : credentials) {
+                if(credential instanceof NtlmAuthenticationCredential) {
                     return true; 
                 }
             }
@@ -1823,6 +1839,7 @@ implements Reporter, Serializable, OverlayContext, Comparable<CrawlURI> {
         kryo.autoregister(org.archive.modules.extractor.LinkContext.SimpleLinkContext.class);
         kryo.autoregister(java.util.HashMap[].class); 
         kryo.autoregister(org.archive.modules.credential.HttpAuthenticationCredential.class);
+        kryo.autoregister(org.archive.modules.credential.NtlmAuthenticationCredential.class);
         kryo.autoregister(org.archive.modules.credential.HtmlFormCredential.class);
         kryo.autoregister(org.apache.commons.httpclient.NameValuePair.class);
         kryo.autoregister(org.apache.commons.httpclient.NameValuePair[].class);
