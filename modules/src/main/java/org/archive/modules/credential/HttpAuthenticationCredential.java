@@ -105,6 +105,33 @@ public class HttpAuthenticationCredential extends Credential {
         return false;
     }
 
+    public static HttpAuthenticationCredential getByDomain(Set<Credential> rfc2617Credentials,
+            String domain, CrawlURI context) {
+
+        HttpAuthenticationCredential result = null;
+        if (rfc2617Credentials == null || rfc2617Credentials.size() <= 0) {
+            return result;
+        }
+        if (rfc2617Credentials != null && rfc2617Credentials.size() > 0) {
+            for (Iterator<Credential> i = rfc2617Credentials.iterator(); i.hasNext();) {
+                HttpAuthenticationCredential c = (HttpAuthenticationCredential)i.next();
+
+                // empty domain field means the credential can be used for any domain
+                if (c.getDomain() == null || c.getDomain().isEmpty()) {
+                    result = c;
+                    break;
+                }
+                
+                if (c.getDomain().equals(domain)) {
+                    result = c;
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+    
+    
     /**
      * Convenience method that does look up on passed set using realm for key.
      *

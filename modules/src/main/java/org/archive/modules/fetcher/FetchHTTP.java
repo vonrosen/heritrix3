@@ -45,8 +45,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 
 import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.auth.BasicScheme;
-import org.apache.commons.httpclient.auth.DigestScheme;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
@@ -64,7 +62,9 @@ import org.apache.http.client.methods.AbstractExecutionAwareRequest;
 import org.apache.http.config.Lookup;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ContentType;
+import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.auth.BasicSchemeFactory;
+import org.apache.http.impl.auth.DigestScheme;
 import org.apache.http.impl.auth.DigestSchemeFactory;
 import org.apache.http.impl.auth.NTLMScheme;
 import org.apache.http.impl.auth.NTLMSchemeFactory;
@@ -108,6 +108,7 @@ public class FetchHTTP extends Processor implements Lifecycle {
         b.register(AuthSchemes.BASIC, new BasicSchemeFactory());
         b.register(AuthSchemes.DIGEST, new DigestSchemeFactory());
         b.register(AuthSchemes.NTLM, new NTLMSchemeFactory());
+        
         AUTH_SCHEME_REGISTRY = b.build();
     }
 
@@ -777,8 +778,9 @@ public class FetchHTTP extends Processor implements Lifecycle {
         }
     }
 
-    protected void doNtlmAuth(AuthScheme authScheme, Map<String, String> challenges, final CrawlURI curi) {
-
+    protected void doNtlmAuth(AuthScheme authScheme, Map<String, String> challenges, final CrawlURI curi, HttpResponse response) {
+        String domain = serverCache.getServerFor(getServerKey(curi)).getName();        
+        
         // Look to see if this curi had ntlm avatars loaded. If so, are
         // any of them for this realm? If so, then the credential failed
         // if we got a 401 and it should be let die a natural 401 death.
@@ -788,13 +790,14 @@ public class FetchHTTP extends Processor implements Lifecycle {
         Set<Credential> ntlmCredentials = getCredentials(curi,
                 NtlmAuthenticationCredential.class);
 
-        NtlmAuthenticationCredential extant = NtlmAuthenticationCredential.getByDomain(ntlmCredentials, "", curi);
+        HttpAuthenticationCredential extant = HttpAuthenticationCredential.getByDomain(ntlmCredentials, domain, curi);
         
         if (extant != null) {
             // Then, already tried this credential. Remove ANY ntlm
             // credential since presence of a ntlm credential serves
             // as flag to frontier to requeue this curi and let the curi
             // die a natural death.
+            
             extant.detachAll(curi);
             logger.warning("Auth failed (401) though supplied domain " + extant.getDomain()
                     + " to " + curi.toString());
@@ -813,21 +816,19 @@ public class FetchHTTP extends Processor implements Lifecycle {
                     || storeRfc2617Credentials.size() <= 0) {
                 logger.fine("No rfc2617 credentials for " + curi);
             } else {
-                HttpAuthenticationCredential found = HttpAuthenticationCredential.getByRealm(
+                HttpAuthenticationCredential found = HttpAuthenticationCredential.getByDomain(
                         storeRfc2617Credentials, server.getName(), curi);                
                 if (found == null) {
                     logger.fine("No ntlm credentials for domain " + server.getName()
                             + " in " + curi);
                 } else {
                     NtlmAuthenticationCredential.convertRfc2617ToNtlmCredential((HttpAuthenticationCredential)found).attach(curi);
-                    logger.fine("Found credential for scheme " + authScheme.getSchemeName()
-                            + " domain " + server.getName() + " in store for "
-                            + curi.toString());
+                    //logger.fine("Found credential for scheme " + authScheme.getSchemeName()
+                    //        + " domain " + server.getName() + " in store for "
+                    //        + curi.toString());
                 }
             }
         }
-        
-        
     }
     
     protected void doRfc2617Auth(AuthScheme authScheme, Map<String, String> challenges, final CrawlURI curi) {
@@ -891,8 +892,12 @@ public class FetchHTTP extends Processor implements Lifecycle {
      *            CrawlURI that got a 401.
      */
     protected void handle401(HttpResponse response, final CrawlURI curi) {
+        
+        
+        //doNtlmAuth(null, null, curi, response);
+        
         Map<String, String> challenges = extractChallenges(response, curi,
-                TargetAuthenticationStrategy.INSTANCE);
+                TargetAuthenticationStrategy.INSTANCE);        
         AuthScheme authscheme = chooseAuthScheme(challenges,
                 HttpHeaders.WWW_AUTHENTICATE);
 
@@ -907,7 +912,7 @@ public class FetchHTTP extends Processor implements Lifecycle {
             doRfc2617Auth(authscheme, challenges, curi);
         }
         else if (authscheme instanceof NTLMScheme) {
-            doNtlmAuth(authscheme, challenges, curi);
+            doNtlmAuth(authscheme, challenges, curi, response);
         }
     }
 
@@ -947,6 +952,9 @@ public class FetchHTTP extends Processor implements Lifecycle {
     }
     
     protected AuthScheme chooseAuthScheme(Map<String, String> challenges, String challengeHeaderKey) {
+        
+        if (challenges == null) return null;
+        
         HashSet<String> authSchemesLeftToTry = new HashSet<String>(challenges.keySet());
         for (String authSchemeName: new String[]{"digest","basic", "ntlm"}) {
             if (authSchemesLeftToTry.remove(authSchemeName)) {
@@ -954,12 +962,14 @@ public class FetchHTTP extends Processor implements Lifecycle {
                 AuthScheme authScheme = AUTH_SCHEME_REGISTRY.lookup(authSchemeName).create(null);
                 BasicHeader challenge = new BasicHeader(HttpHeaders.WWW_AUTHENTICATE, challenges.get(authScheme.getSchemeName()));
 
-                try {
-                    authScheme.processChallenge(challenge);
-                } catch (MalformedChallengeException e) {
-                    logger.fine(e.getMessage() + " " + challenge);
-                    continue;
-                }
+                if (!"ntlm".equals(authSchemeName)) {
+                    try {
+                        authScheme.processChallenge(challenge);
+                    } catch (MalformedChallengeException e) {
+                        logger.fine(e.getMessage() + " " + challenge);
+                        continue;
+                    }
+                }                
                 
                 if (!"ntlm".equals(authSchemeName) && (authScheme.getRealm() == null
                         || authScheme.getRealm().length() <= 0)) {

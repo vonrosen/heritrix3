@@ -33,6 +33,7 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CodingErrorAction;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,11 +56,14 @@ import org.apache.http.NameValuePair;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.auth.AuthScheme;
 import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -165,7 +169,9 @@ class FetchHTTPRequest {
         
         this.httpClientContext = new HttpClientContext();
         this.requestConfigBuilder = RequestConfig.custom();
-
+        
+        //this.requestConfigBuilder.setTargetPreferredAuthSchemes(Arrays.asList(AuthSchemes.NTLM, AuthSchemes.KERBEROS, AuthSchemes.SPNEGO));
+        
         ProtocolVersion httpVersion = fetcher.getConfiguredHttpVersion();
         String proxyHostname = (String) fetcher.getAttributeEither(curi, "httpProxyHost");
         Integer proxyPort = (Integer) fetcher.getAttributeEither(curi, "httpProxyPort");
@@ -305,6 +311,8 @@ class FetchHTTPRequest {
         } else {
             requestConfigBuilder.setCookieSpec(CookieSpecs.BROWSER_COMPATIBILITY);
         }
+        
+        requestConfigBuilder.setCookieSpec(CookieSpecs.IGNORE_COOKIES);
 
         requestConfigBuilder.setConnectionRequestTimeout(fetcher.getSoTimeoutMs());
         requestConfigBuilder.setConnectTimeout(fetcher.getSoTimeoutMs());
@@ -428,9 +436,8 @@ class FetchHTTPRequest {
 
         return true;
     }
-    
-    // http auth credential, either for proxy or target host
-    protected void populateHttpCredential(HttpHost host, AuthScheme authScheme, String user, String password) {
+
+    protected void populateRfc2617Credential(HttpHost host, AuthScheme authScheme, String user, String password) {    
         UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(user, password);
         
         AuthCache authCache = httpClientContext.getAuthCache();
@@ -446,6 +453,38 @@ class FetchHTTPRequest {
         httpClientContext.getCredentialsProvider().setCredentials(new AuthScope(host), credentials);
     }
     
+    protected void populateNtlmCredential(HttpHost host, AuthScheme authScheme, String user, String password) {
+        
+        NTCredentials credentials = new NTCredentials(user, password, "", "");
+        
+        AuthCache authCache = httpClientContext.getAuthCache();
+        if (authCache == null) {
+            authCache = new BasicAuthCache();
+            httpClientContext.setAuthCache(authCache);
+        }
+        authCache.put(host, authScheme);
+
+        if (httpClientContext.getCredentialsProvider() == null) {
+            httpClientContext.setCredentialsProvider(new BasicCredentialsProvider());
+        }
+        httpClientContext.getCredentialsProvider().setCredentials(new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT), credentials);
+    }
+    
+    // http auth credential, either for proxy or target host
+    protected void populateHttpCredential(HttpHost host, AuthScheme authScheme, String user, String password) {
+        
+        populateNtlmCredential(host, authScheme, user, password);
+        
+        /*
+        if (authScheme instanceof BasicScheme || authScheme instanceof DigestScheme) {
+            populateRfc2617Credential(host, authScheme, user, password);
+        }
+        else if (authScheme instanceof NTLMScheme) {
+            populateNtlmCredential(host, authScheme, user, password);
+        }
+        */
+    }
+    
     protected void configureHttpClientBuilder() throws URIException {
         String userAgent = curi.getUserAgent();
         if (userAgent == null) {
@@ -456,8 +495,8 @@ class FetchHTTPRequest {
         CookieStore cookieStore = fetcher.getCookieStore().cookieStoreFor(curi);
         httpClientBuilder.setDefaultCookieStore(cookieStore);
         
-        connMan = buildConnectionManager();
-        httpClientBuilder.setConnectionManager(connMan);
+        //connMan = buildConnectionManager();
+        //httpClientBuilder.setConnectionManager(connMan);
     }
 
     protected HttpClientConnectionManager buildConnectionManager() {
@@ -631,10 +670,27 @@ class FetchHTTPRequest {
     }
     
     public HttpResponse execute() throws ClientProtocolException, IOException {
+
+        //httpClientBuilder.setTargetAuthenticationStrategy(targetAuthStrategy);
+        
         HttpClient httpClient = httpClientBuilder.build();
+        //httpClient.  getAuthSchemes().register("ntlm", new NTLMSchemeFactory());
         
         RequestConfig requestConfig = requestConfigBuilder.build();
+        
         httpClientContext.setRequestConfig(requestConfig);
+        
+        Credentials creds = null;
+        
+        if (httpClientContext.getCredentialsProvider() != null) {
+            creds = httpClientContext.getCredentialsProvider().getCredentials(AuthScope.ANY);
+        }
+        
+        if (creds != null) {
+            System.out.println(creds.getUserPrincipal());
+            System.out.println(creds.getPassword());
+            
+        }
         
         return httpClient.execute(targetHost, request, httpClientContext);
     }

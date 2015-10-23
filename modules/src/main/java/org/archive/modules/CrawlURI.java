@@ -130,6 +130,17 @@ implements Reporter, Serializable, OverlayContext, Comparable<CrawlURI> {
     
     public static enum FetchType { HTTP_GET, HTTP_POST, UNKNOWN };
 
+    
+    private String ntlmAuthenticateHeader = null;
+    
+    public void setNtlmAuthenticateHeader(String ntlmAuthenticateHeader) {
+        this.ntlmAuthenticateHeader = ntlmAuthenticateHeader;
+    }
+    
+    public String getNtlmAuthenticateHeader() {
+        return this.ntlmAuthenticateHeader;
+    }
+    
     /**
      * The URI being crawled.  It's transient to save space when storing to BDB.
      */
