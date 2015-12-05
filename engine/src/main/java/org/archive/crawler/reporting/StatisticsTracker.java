@@ -379,13 +379,16 @@ public class StatisticsTracker
                     sourceHostDistribution.put(source, hostUriCount);
                 }
                 
-                JSONObject ss = json.getJSONObject("sourceStats");
-                keyIter = ss.keys();
-                for(; keyIter.hasNext();) {
-                    String source = keyIter.next();
-                    CrawledBytesHistotable cb = new CrawledBytesHistotable();
-                    JSONUtils.putAllLongs(cb, ss.getJSONObject(source));
-                    statsBySource.put(source, cb);
+                // optional so we can still recover checkpoints from earlier versions of heritrix
+                JSONObject ss = json.optJSONObject("statsBySource");
+                if (ss != null) {
+                    keyIter = ss.keys();
+                    for(; keyIter.hasNext();) {
+                        String source = keyIter.next();
+                        CrawledBytesHistotable cb = new CrawledBytesHistotable();
+                        JSONUtils.putAllLongs(cb, ss.getJSONObject(source));
+                        statsBySource.put(source, cb);
+                    }
                 }
                 
                 JSONUtils.putAllLongs(
@@ -1064,7 +1067,7 @@ public class StatisticsTracker
             json.put("statusCodeDistribution", statusCodeDistribution);
 
             json.put("sourceHostDistribution", sourceHostDistribution);
-            json.put("sourceStats", statsBySource);
+            json.put("statsBySource", statsBySource);
             
             json.put("crawledBytes", crawledBytes);
 
