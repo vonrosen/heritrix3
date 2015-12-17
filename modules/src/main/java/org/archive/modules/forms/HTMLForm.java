@@ -51,6 +51,7 @@ public class HTMLForm {
     
     String method;
     String action;
+    String enctype;
     
     List<FormInput> allInputs = new ArrayList<FormInput>();
     List<FormInput> candidateUsernameInputs = new ArrayList<FormInput>();
@@ -108,6 +109,14 @@ public class HTMLForm {
     public void setAction(String action) {
         this.action = action;
     }
+    
+    public String getEnctype() {
+        return enctype;
+    }
+
+    public void setEnctype(String enctype) {
+        this.enctype = enctype;
+    }
 
     /**
      * For now, we consider a POST form with only 1 password
@@ -117,9 +126,22 @@ public class HTMLForm {
      * @return boolean likely login form
      */
     public boolean seemsLoginForm() {
-        return "post".equalsIgnoreCase(method) 
-                && candidateUsernameInputs.size() == 1
-                && candidatePasswordInputs.size() == 1;
+        if ("post".equalsIgnoreCase(method)) {
+            if (candidatePasswordInputs.size() == 1) {
+                if (candidateUsernameInputs.size() == 1) {
+                    return true;
+                }               
+                else if (candidateUsernameInputs.size() > 1) {
+                    for (FormInput formInput : candidateUsernameInputs) {
+                        if (formInput.name != null && formInput.name.toLowerCase().indexOf("login") > 0) {
+                            return true;
+                        }
+                    }
+                }
+            }            
+        }
+        
+        return false;
     }
 
     /**
