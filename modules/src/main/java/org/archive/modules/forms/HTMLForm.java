@@ -26,6 +26,11 @@ import java.util.List;
 
 import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.StringBody;
 import org.archive.util.TextUtils;
 
 /**
@@ -68,10 +73,16 @@ public class HTMLForm {
     public void addField(String type, String name, String value, boolean checked) {
         FormInput input = new FormInput();
         input.type = type;
+        
+        if (isMultipleFormSubmitInputs(type)) {
+            return;
+        }
+        
         // default input type is text per html standard
         if (input.type == null) {
             input.type = "text";
         }
+        
         input.name = name;
         input.value = value; 
         allInputs.add(input);
@@ -92,6 +103,18 @@ public class HTMLForm {
      */
     public void addField(String type, String name, String value) {
         addField(type, name, value, false);
+    }
+    
+    public boolean isMultipleFormSubmitInputs(String type) {
+        if (!type.toLowerCase().equals("submit")) return false;
+        
+        for (FormInput input : allInputs) {
+            if (input.type.toLowerCase().equals("submit")) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     public void setMethod(String method) {
@@ -166,6 +189,38 @@ public class HTMLForm {
             }
         }
         return data.toArray(new NameValuePair[data.size()]);
+    }
+
+    public FormInput getLoginInputFromCandidates() {
+        if (candidateUsernameInputs == null) return null;
+        
+        if (candidateUsernameInputs.size() == 1) return candidateUsernameInputs.get(0);
+        
+        for (FormInput input : candidateUsernameInputs) {
+
+            if (input.name != null && input.name.toLowerCase().indexOf("login") != -1) {
+                return input;
+            }
+        }
+        
+        return null;
+    }
+    
+    public HttpEntity asFormDataMultiPartEntity(String username, String password) {
+        MultipartEntityBuilder multiPartEntityBuilder = MultipartEntityBuilder.create();
+        multiPartEntityBuilder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+        
+        for (FormInput input : allInputs) {
+            if(input == getLoginInputFromCandidates()) {
+                multiPartEntityBuilder.addPart(input.name, new StringBody(username, ContentType.MULTIPART_FORM_DATA));
+            } else if(input == candidatePasswordInputs.get(0)) {
+                multiPartEntityBuilder.addPart(input.name, new StringBody(password, ContentType.MULTIPART_FORM_DATA));
+            } else if (StringUtils.isNotEmpty(input.name)) {
+                multiPartEntityBuilder.addPart(input.name, new StringBody(StringUtils.isNotEmpty(input.value) ? input.value : "", ContentType.MULTIPART_FORM_DATA));                
+            }
+        }
+       
+        return multiPartEntityBuilder.build();
     }
     
     public List<FormInput> getAllInputs() {
