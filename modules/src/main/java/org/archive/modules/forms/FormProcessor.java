@@ -220,7 +220,7 @@ public class FormProcessor extends Processor implements Checkpointable {
             }
         }
         
-        return "?" + String.join("&", nameVals);
+        return "?" + StringUtils.join(nameVals, '&');
     }
     
     protected String warcHeaderFor(String formProvince) {
