@@ -4,6 +4,7 @@ import static org.archive.modules.CoreAttributeConstants.A_WARC_RESPONSE_HEADERS
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -11,8 +12,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.httpclient.URIException;
+import org.apache.commons.lang.StringUtils;
 import org.archive.checkpointing.Checkpointable;
-import org.archive.modules.CoreAttributeConstants;
 import org.archive.modules.CrawlURI;
 import org.archive.modules.CrawlURI.FetchType;
 import org.archive.modules.Processor;
@@ -22,6 +23,7 @@ import org.archive.modules.extractor.LinkContext;
 import org.archive.modules.extractor.UriErrorLoggerModule;
 import org.archive.modules.forms.HTMLForm.FormInput;
 import org.archive.util.JSONUtils;
+import org.archive.util.TextUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -196,14 +198,10 @@ public class FormProcessor extends Processor implements Checkpointable {
             if (method == null || !method.toUpperCase().equals("GET")) return;
             
             String submitUrl = templateForm.getAction() == null ? curi.getURI() : templateForm.getAction();
-
-            submitUrl += "?" + templateForm.asFormDataString();
+            submitUrl += makeQueryString(templateForm);
             
             CrawlURI submitCuri = curi.createCrawlURI(submitUrl, lc, Hop.SUBMIT);
             submitCuri.setFetchType(FetchType.HTTP_GET);
-            submitCuri.getData().put(
-                    CoreAttributeConstants.A_SUBMIT_DATA, 
-                    templateForm.asFormDataString());
             submitCuri.setSchedulingDirective(SchedulingConstants.HIGH);
             submitCuri.setForceFetch(true);
             curi.getOutLinks().add(submitCuri);
@@ -211,6 +209,18 @@ public class FormProcessor extends Processor implements Checkpointable {
         } catch (URIException ue) {
             loggerModule.logUriError(ue,curi.getUURI(),templateForm.getAction());
         }
+    }
+    
+    protected String makeQueryString(HTMLForm form) {
+        List<String> nameVals = new LinkedList<String>();
+
+        for (FormInput input: form.getAllInputs()) {
+            if (StringUtils.isNotEmpty(input.name) && StringUtils.isNotEmpty(input.value)) {
+                nameVals.add(TextUtils.urlEscape(input.name) + "=" + TextUtils.urlEscape(input.value));
+            }
+        }
+        
+        return "?" + String.join("&", nameVals);
     }
     
     protected String warcHeaderFor(String formProvince) {
