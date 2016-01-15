@@ -22,12 +22,13 @@ package org.archive.modules.forms;
 import static org.archive.modules.CoreAttributeConstants.A_WARC_RESPONSE_HEADERS;
 
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 
 import org.apache.commons.httpclient.URIException;
-import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.http.HttpRequest;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.util.EntityUtils;
+import org.archive.modules.CoreAttributeConstants;
 import org.archive.modules.CrawlURI;
 import org.archive.modules.CrawlURI.FetchType;
 import org.archive.modules.ProcessorTestBase;
@@ -35,6 +36,7 @@ import org.archive.modules.fetcher.BasicExecutionAwareEntityEnclosingRequest;
 import org.archive.modules.fetcher.FetchHTTP;
 import org.archive.modules.fetcher.FetchHTTPRequest;
 import org.archive.modules.fetcher.FetchHTTPTests;
+import org.archive.modules.forms.HTMLForm.NameValue;
 
 public class FormLoginProcessorTest extends ProcessorTestBase {
 
@@ -135,7 +137,6 @@ public class FormLoginProcessorTest extends ProcessorTestBase {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         req.getEntity().writeTo(baos);
-        System.out.println(StringEscapeUtils.escapeJava(baos.toString("UTF-8")));
         // --e5XWkWxQ2EXBQAEPQ7n3yyvv9bI-8YIHok\r\nContent-Disposition: form-data; name=\"username-form-field\"\r\n\r\njdoe\r\n--e5XWkWxQ2EXBQAEPQ7n3yyvv9bI-8YIHok\r\nContent-Disposition: form-data; name=\"password-form-field\"\r\n\r\n********\r\n--e5XWkWxQ2EXBQAEPQ7n3yyvv9bI-8YIHok\r\nContent-Disposition: form-data; name=\"crazy&#128018;monkey\"\r\n\r\n&#250;h&#243;h\r\n--e5XWkWxQ2EXBQAEPQ7n3yyvv9bI-8YIHok--\r\n
         assertTrue(baos.toString("ascii").matches("--([a-zA-Z0-9_-]{30,41})\r\nContent-Disposition: form-data; name=\"username-form-field\"\r\n\r\njdoe\r\n--\\1\r\nContent-Disposition: form-data; name=\"password-form-field\"\r\n\r\n\\*\\*\\*\\*\\*\\*\\*\\*\r\n--\\1\r\nContent-Disposition: form-data; name=\"crazy&#128018;monkey\"\r\n\r\n&#250;h&#243;h\r\n--\\1--\r\n"));
     }
@@ -176,7 +177,20 @@ public class FormLoginProcessorTest extends ProcessorTestBase {
         CrawlURI submitCuri = curi.getOutLinks().toArray(new CrawlURI[0])[0];
         assertEquals("http://example.com/login", submitCuri.toString());
         assertEquals(FetchType.HTTP_POST, submitCuri.getFetchType());
-        String queryString = (String) submitCuri.getData().get(CoreAttributeConstants.A_SUBMIT_DATA);
-        assertEquals("username-form-field=jdoe&password-form-field=********&some-other-form-field=default+value%21&hidden-field=hidden+value%21&checkbox-field=checked-value&radio-field=checked-value", queryString);
+        @SuppressWarnings("unchecked")
+        List<NameValue> submitData = (List<NameValue>) submitCuri.getData().get(CoreAttributeConstants.A_SUBMIT_DATA);
+        assertEquals(6, submitData.size());
+        assertEquals("username-form-field", submitData.get(0).name);
+        assertEquals("jdoe", submitData.get(0).value);
+        assertEquals("password-form-field", submitData.get(1).name);
+        assertEquals("********", submitData.get(1).value);
+        assertEquals("some-other-form-field", submitData.get(2).name);
+        assertEquals("default value!", submitData.get(2).value);
+        assertEquals("hidden-field", submitData.get(3).name);
+        assertEquals("hidden value!", submitData.get(3).value);
+        assertEquals("checkbox-field", submitData.get(4).name);
+        assertEquals("checked-value", submitData.get(4).value);
+        assertEquals("radio-field", submitData.get(5).name);
+        assertEquals("checked-value", submitData.get(5).value);
     }
 }
