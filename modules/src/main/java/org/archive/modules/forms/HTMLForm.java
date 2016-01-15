@@ -78,13 +78,14 @@ public class HTMLForm {
         
         input.name = name;
         input.value = value; 
+        input.checked = checked;
         allInputs.add(input);
+
         if("text".equalsIgnoreCase(input.type) || "email".equalsIgnoreCase(input.type)) {
             candidateUsernameInputs.add(input);
         } else if ("password".equalsIgnoreCase(type)) {
             candidatePasswordInputs.add(input);
         }
-        input.checked = checked;
     }
 
     /**
@@ -142,9 +143,9 @@ public class HTMLForm {
      * @return boolean likely login form
      */
     public boolean seemsLoginForm() {
-        return "post".equalsIgnoreCase(method)
-            && candidateUsernameInputs.size() == 1
-            && candidatePasswordInputs.size() == 1;
+        return "post".equalsIgnoreCase(method) 
+                && candidatePasswordInputs.size() == 1
+                && presumedUsernameInput() != null;
     }
 
     public static class NameValue {
@@ -155,6 +156,28 @@ public class HTMLForm {
         }
     }
 
+    protected FormInput presumedUsernameInput() {
+        if (candidateUsernameInputs.size() < 1) {
+            return null;
+        } else if (candidateUsernameInputs.size() == 1) {
+            return candidateUsernameInputs.get(0);
+        } else {
+            // more than one candidate; if there is exactly one whose name
+            // contains the string "username", choose that one
+            FormInput choice = null;
+            for (FormInput input: candidateUsernameInputs) {
+                if (input.name != null && input.name.toLowerCase().indexOf("username") != -1) {
+                    if (choice == null) {
+                        choice = input;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+            return choice;
+        }
+    }
+
     public List<FormInput> getAllInputs() {
         return Collections.unmodifiableList(allInputs);
     }
@@ -162,7 +185,7 @@ public class HTMLForm {
     public LinkedList<NameValue> formData(String username, String password) {
         LinkedList<NameValue> nameVals = new LinkedList<NameValue>();
         for (FormInput input : allInputs) {
-            if (input == candidateUsernameInputs.get(0)) {
+            if (input == presumedUsernameInput()) {
                 nameVals.add(new NameValue(input.name, username));
             } else if(input == candidatePasswordInputs.get(0)) {
                 nameVals.add(new NameValue(input.name, password));
