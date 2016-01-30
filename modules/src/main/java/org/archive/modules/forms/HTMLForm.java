@@ -88,19 +88,6 @@ public class HTMLForm {
         }
     }
     
-    public boolean isMultipleFormSubmitInputs(String type) {
-        if (!type.toLowerCase().equals("submit"))
-            return false;
-
-        for (FormInput input : allInputs) {
-            if (input.type.toLowerCase().equals("submit")) {
-                return true;
-            }
-        }
-
-        return false;
-    }    
-
     /**
      * Add a discovered INPUT, tracking it as potential 
      * username/password receiver. 
