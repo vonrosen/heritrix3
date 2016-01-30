@@ -87,6 +87,19 @@ public class HTMLForm {
             candidatePasswordInputs.add(input);
         }
     }
+    
+    public boolean isMultipleFormSubmitInputs(String type) {
+        if (!type.toLowerCase().equals("submit"))
+            return false;
+
+        for (FormInput input : allInputs) {
+            if (input.type.toLowerCase().equals("submit")) {
+                return true;
+            }
+        }
+
+        return false;
+    }    
 
     /**
      * Add a discovered INPUT, tracking it as potential 
@@ -189,11 +202,9 @@ public class HTMLForm {
                 nameVals.add(new NameValue(input.name, username));
             } else if(input == candidatePasswordInputs.get(0)) {
                 nameVals.add(new NameValue(input.name, password));
-            } else if (StringUtils.isNotEmpty(input.name)
-                    && StringUtils.isNotEmpty(input.value)
-                    && (!"radio".equalsIgnoreCase(input.type)
-                            && !"checkbox".equals(input.type) || input.checked)) {
-                nameVals.add(new NameValue(input.name, input.value));
+            } else if(!"radio".equalsIgnoreCase(input.type)
+                            && !"checkbox".equals(input.type) || input.checked) {
+                nameVals.add(new NameValue(StringUtils.isEmpty(input.name) ? "" : input.name, StringUtils.isEmpty(input.value) ? "" : input.value));
             }
         }
         return nameVals;
