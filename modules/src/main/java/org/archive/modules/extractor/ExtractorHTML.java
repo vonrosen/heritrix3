@@ -666,16 +666,13 @@ public class ExtractorHTML extends ContentExtractor implements InitializingBean 
 
                 logger.fine("Found srcset listing: " + uri.toString());
 
-                Matcher srcSetUris = TextUtils.getMatcher("([\\w:/_.-]+)(?: [\\d.]+(?:w|x),?)*",uri);
-                String srcSetUri;
-
-                while (srcSetUris.find()) {
-                    srcSetUri = srcSetUris.group(1);
-                    logger.finer("Found " + srcSetUri.toString() + "adding to outlinks.");
-                    addRelativeToBase(curi, max, srcSetUri.toString(), hc, hop);
+                String[] links = uri.toString().split(",");
+                for (int i=0; i < links.length; i++){
+                    String link = links[i].trim().split(" +")[0];
+                    logger.finer("Found " + link + "adding to outlinks.");
+                    addRelativeToBase(curi, max, link.toString(), hc, hop);
                 }
 
-                TextUtils.recycleMatcher(srcSetUris);
             } else {
                 addRelativeToBase(curi, max, uri.toString(), hc, hop);
             }
