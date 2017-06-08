@@ -662,20 +662,7 @@ public class ExtractorHTML extends ContentExtractor implements InitializingBean 
             // ReplayCharSequence.
             HTMLLinkContext hc = HTMLLinkContext.get(context.toString());
             int max = getExtractorParameters().getMaxOutlinks();
-            if (hc.equals(HTMLLinkContext.IMG_SRCSET) || hc.equals(HTMLLinkContext.SOURCE_SRCSET)) {
-
-                logger.fine("Found srcset listing: " + uri.toString());
-
-                String[] links = uri.toString().split(",");
-                for (int i=0; i < links.length; i++){
-                    String link = links[i].trim().split(" +")[0];
-                    logger.finer("Found " + link + "adding to outlinks.");
-                    addRelativeToBase(curi, max, link.toString(), hc, hop);
-                }
-
-            } else {
-                addRelativeToBase(curi, max, uri.toString(), hc, hop);
-            }
+            addRelativeToBase(curi, max, uri.toString(), hc, hop);
         } catch (URIException e) {
             logUriError(e, curi.getUURI(), uri);
         }
@@ -692,11 +679,25 @@ public class ExtractorHTML extends ContentExtractor implements InitializingBean 
             logger.finest("embed (" + hop.getHopChar() + "): " + value.toString() +
                 " from " + curi);
         }
-        addLinkFromString(curi,
-            (value instanceof String)?
-                (String)value: value.toString(),
-            context, hop);
-        numberOfLinksExtracted.incrementAndGet();
+
+        if (context.equals(HTMLLinkContext.IMG_SRCSET.toString()) || context.equals(HTMLLinkContext.SOURCE_SRCSET.toString())) {
+
+            logger.fine("Found srcset listing: " + value.toString());
+
+            String[] links = value.toString().split(",");
+            for (int i=0; i < links.length; i++){
+                String link = links[i].trim().split(" +")[0];
+                logger.finer("Found " + link + " adding to outlinks.");
+                addLinkFromString(curi, link, context, hop);
+                numberOfLinksExtracted.incrementAndGet();
+            }
+        } else {
+            addLinkFromString(curi,
+                (value instanceof String)?
+                    (String)value: value.toString(),
+                context, hop);
+            numberOfLinksExtracted.incrementAndGet();
+        }
     }
 
     
